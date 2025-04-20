@@ -1,4 +1,5 @@
 import OpenAI from "https://deno.land/x/openai@v4.62.1/mod.ts";
+import { render } from "jsr:@deno/gfm";
 
 const openai = new OpenAI({
   apiKey: Deno.env.get("OPENAI_API_KEY"),
@@ -16,28 +17,26 @@ async function handler(req: Request) {
       { role: "user", content: name },
     ],
     model: "gpt-4o-mini",
-    stream: true,
   });
 
-  const body = new ReadableStream({
-    async start(controller) {
-      for await (const chunk of completion) {
-        const message = chunk.choices[0].delta.content;
-        if (message === undefined) {
-          controller.close();
-          return;
-        }
-        controller.enqueue(new TextEncoder().encode(message ?? ""));
-      }
-    },
-  });
+  const markdown = completion.choices[0].message.content;
+  const body = render(markdown ?? "結果なし");
 
-  const response = new Response(body, {
-    headers: {
-      "content-type": "text/plain;charset=utf-8",
-      "x-contemt-type-options": "nosniff",
-    },
-  });
+  const response = new Response(
+    `<!DOCTYPE html>
+      <head>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sakura.css/css/sakura.css">
+      </head>
+      <body>
+        ${body}
+      </body>
+    <html>`,
+    {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+      },
+    }
+  );
 
   return response;
 }
